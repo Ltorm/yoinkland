@@ -1,0 +1,54 @@
+# YoinkLand — minimal self-host for a small private server.
+# Brings up the game (app) behind Caddy, which auto-provisions HTTPS.
+#
+#   cd deploy
+#   cp .env.example .env      # then edit DOMAIN + API_KEY
+#   docker compose up -d --build
+#
+# Visit https://<your DOMAIN>. To update later: git pull && docker compose up -d --build
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        GIT_COMMIT: ${GIT_COMMIT:-selfhost}
+    restart: unless-stopped
+    environment:
+      GAME_ENV: prod
+      DOMAIN: ${DOMAIN:?set DOMAIN in .env}
+      NUM_WORKERS: ${NUM_WORKERS:-2}
+      # Bot-check off for a private instance (no external api-worker needed).
+      DISABLE_TURNSTILE: "true"
+      # Only used to render the Turnstile widget; Cloudflare's always-pass test key.
+      TURNSTILE_SITE_KEY: ${TURNSTILE_SITE_KEY:-1x00000000000000000000AA}
+      API_KEY: ${API_KEY:-changeme}
+      ADMIN_BOT_API_KEY: ${ADMIN_BOT_API_KEY:-}
+    expose:
+      - "80" # internal only; Caddy terminates TLS and proxies to this
+    networks:
+      - web
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN in .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - web
+
+networks:
+  web:
+
+volumes:
+  caddy_data:
+  caddy_config:

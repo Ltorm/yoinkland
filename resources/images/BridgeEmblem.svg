@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <defs>
+    <radialGradient id="be-gold" cx="50%" cy="34%" r="72%">
+      <stop offset="0" stop-color="#fff3c4" />
+      <stop offset="0.55" stop-color="#e8b73c" />
+      <stop offset="1" stop-color="#9c7212" />
+    </radialGradient>
+  </defs>
+  <circle
+    cx="24"
+    cy="24"
+    r="20.5"
+    fill="url(#be-gold)"
+    stroke="#5c3d0d"
+    stroke-width="3"
+  />
+  <!-- bridge: deck, twin arches, piers -->
+  <g
+    fill="none"
+    stroke="#3a230a"
+    stroke-width="3.4"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
+    <path d="M9 32 H39" />
+    <path d="M13 32 v-3 a6.5 6.5 0 0 1 11 0" />
+    <path d="M24 26 a6.5 6.5 0 0 1 11 3 v3" />
+    <path d="M24 32 v-9" />
+  </g>
+  <!-- small crown above the bridge -->
+  <path d="M18 17 l2.5 -5 l3.5 3.5 l3.5 -3.5 l2.5 5 z" fill="#3a230a" />
+</svg>

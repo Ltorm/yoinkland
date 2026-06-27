@@ -1,0 +1,20 @@
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 48 48"
+  fill="none"
+  stroke="#ffffff"
+  stroke-width="3"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <!-- ground -->
+  <path d="M6 41 H42" />
+  <!-- A-frame support -->
+  <path d="M13 41 L21 19 L29 41" />
+  <!-- throwing arm, pivoting at the apex -->
+  <path d="M10 31 L35 12" />
+  <!-- counterweight on the short end -->
+  <rect x="7" y="28" width="7" height="7" rx="1.2" />
+  <!-- boulder loaded on the long end -->
+  <circle cx="37" cy="11" r="3" />
+</svg>

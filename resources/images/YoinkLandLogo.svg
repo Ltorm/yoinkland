@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1364 259" role="img" aria-label="YoinkLand">
+  <defs>
+    <linearGradient id="yl-gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffe082"/>
+      <stop offset="1" stop-color="#f5a623"/>
+    </linearGradient>
+    <style>
+      .wm { font-family: "Segoe UI", "Arial Black", system-ui, sans-serif; font-weight: 900; font-size: 168px; letter-spacing: -4px; }
+    </style>
+  </defs>
+  <g text-anchor="middle">
+    <text x="682" y="190" class="wm">
+      <tspan fill="url(#yl-gold)">YOINK</tspan><tspan fill="#ffffff">LAND</tspan>
+    </text>
+  </g>
+</svg>

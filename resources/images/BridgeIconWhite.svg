@@ -1,0 +1,19 @@
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 48 48"
+  fill="none"
+  stroke="#ffffff"
+  stroke-width="3.4"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <!-- deck -->
+  <path d="M7 33 H41" />
+  <!-- twin arches -->
+  <path d="M12 33 v-4 a7 7 0 0 1 12 0" />
+  <path d="M24 25 a7 7 0 0 1 12 4 v4" />
+  <!-- piers -->
+  <path d="M24 33 v-10" />
+  <path d="M17 33 v-5" />
+  <path d="M31 33 v-5" />
+</svg>
