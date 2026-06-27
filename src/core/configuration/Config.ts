@@ -854,8 +854,8 @@ export class Config {
       case UnitType.HydrogenBomb:
         return { inner: 80, outer: 100 };
       case UnitType.Boulder:
-        // Half an atom bomb's width — a tighter fallout crater.
-        return { inner: 6, outer: 15 };
+        // A tight fallout crater (~10% smaller than before).
+        return { inner: 5.4, outer: 13.5 };
     }
     throw new Error(`Unknown nuke type: ${unitType}`);
   }
@@ -875,10 +875,11 @@ export class Config {
   boulderSpeed(): number {
     return 8;
   }
-  // How far the boulder rolls forward past the impact at MAX range, in tiles
-  // (~2 land-bridge segment lengths). Scales linearly with shot distance.
+  // How far the boulder rolls forward past the impact at MAX range, in tiles.
+  // Scales linearly with shot distance; up to ~35% longer than before so a
+  // long shot carves a noticeably longer cone.
   boulderMaxRoll(): number {
-    return 54;
+    return 73;
   }
 
   nukeAllianceBreakThreshold(): number {

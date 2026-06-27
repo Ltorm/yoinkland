@@ -4,7 +4,7 @@ import { UserSettings } from "../core/game/UserSettings";
 import { Platform } from "./Platform";
 import { UIState } from "./UIState";
 import { ReplaySpeedMultiplier } from "./utilities/ReplaySpeedMultiplier";
-import { GameView, UnitView } from "./view";
+import { GameView, PlayerView, UnitView } from "./view";
 
 export class MouseUpEvent implements GameEvent {
   constructor(
@@ -75,6 +75,15 @@ export class SellLandModeEvent implements GameEvent {
 // Fired when a land-sale offer's "Focus" button is clicked — glow the parcel.
 export class LandSaleFocusEvent implements GameEvent {
   constructor(public readonly tiles: number[]) {}
+}
+
+// Fired when the player picks "Surrender" — asks for confirmation in the
+// bottom-right panel before the surrender is actually sent.
+export class RequestSurrenderConfirmEvent implements GameEvent {
+  constructor(
+    public readonly vassal: PlayerView,
+    public readonly lord: PlayerView,
+  ) {}
 }
 
 export class ZoomEvent implements GameEvent {

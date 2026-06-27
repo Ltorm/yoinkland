@@ -122,6 +122,7 @@ export class FireTrebuchetIntentEvent implements GameEvent {
 
 export class SendProposeLandSaleIntentEvent implements GameEvent {
   constructor(
+    public readonly seller: PlayerView,
     public readonly buyer: PlayerView,
     public readonly tiles: TileRef[],
     public readonly price: number,
@@ -132,6 +133,13 @@ export class SendRespondLandSaleIntentEvent implements GameEvent {
   constructor(
     public readonly offerId: number,
     public readonly accept: boolean,
+  ) {}
+}
+
+export class SendCounterLandSaleIntentEvent implements GameEvent {
+  constructor(
+    public readonly offerId: number,
+    public readonly price: number,
   ) {}
 }
 
@@ -298,6 +306,9 @@ export class Transport {
     );
     this.eventBus.on(SendRespondLandSaleIntentEvent, (e) =>
       this.onRespondLandSale(e),
+    );
+    this.eventBus.on(SendCounterLandSaleIntentEvent, (e) =>
+      this.onCounterLandSale(e),
     );
     this.eventBus.on(FireTrebuchetIntentEvent, (e) =>
       this.onFireTrebuchetIntent(e),
@@ -658,6 +669,7 @@ export class Transport {
   private onProposeLandSale(event: SendProposeLandSaleIntentEvent) {
     this.sendIntent({
       type: "propose_land_sale",
+      seller: event.seller.id(),
       buyer: event.buyer.id(),
       tiles: event.tiles,
       price: event.price,
@@ -669,6 +681,14 @@ export class Transport {
       type: "respond_land_sale",
       offerId: event.offerId,
       accept: event.accept,
+    });
+  }
+
+  private onCounterLandSale(event: SendCounterLandSaleIntentEvent) {
+    this.sendIntent({
+      type: "counter_land_sale",
+      offerId: event.offerId,
+      price: event.price,
     });
   }
 

@@ -12,14 +12,19 @@ import {
   LandSaleOfferUpdate,
 } from "../../../core/game/GameUpdates";
 import { Controller } from "../../Controller";
-import { LandSaleFocusEvent } from "../../InputHandler";
+import {
+  LandSaleFocusEvent,
+  RequestSurrenderConfirmEvent,
+} from "../../InputHandler";
 import { PlaySoundEffectEvent } from "../../sound/Sounds";
 import { GoToPlayerEvent, GoToPositionEvent } from "../../TransformHandler";
 import {
   SendAllianceExtensionIntentEvent,
   SendAllianceRejectIntentEvent,
   SendAllianceRequestIntentEvent,
+  SendCounterLandSaleIntentEvent,
   SendRespondLandSaleIntentEvent,
+  SendSurrenderIntentEvent,
 } from "../../Transport";
 import { UIState } from "../../UIState";
 import {
@@ -54,6 +59,7 @@ export class ActionableEvents extends LitElement implements Controller {
   public uiState: UIState;
 
   private active = false;
+  private subscribed = false;
   private events: ActionableEvent[] = [];
   // allianceID -> last checked at tick
   private alliancesCheckedAt = new Map<number, Tick>();
@@ -105,6 +111,13 @@ export class ActionableEvents extends LitElement implements Controller {
 
   tick() {
     this.active = true;
+
+    if (!this.subscribed) {
+      this.subscribed = true;
+      this.eventBus.on(RequestSurrenderConfirmEvent, (e) =>
+        this.onSurrenderConfirmEvent(e),
+      );
+    }
 
     if (!this._isVisible && !this.game.inSpawnPhase()) {
       this._isVisible = true;
@@ -271,10 +284,47 @@ export class ActionableEvents extends LitElement implements Controller {
     });
   }
 
+  private onSurrenderConfirmEvent(e: RequestSurrenderConfirmEvent) {
+    const lord = e.lord;
+    this.eventBus.emit(new PlaySoundEffectEvent("alliance-suggested"));
+    this.addEvent({
+      description: translateText("events_display.surrender_confirm", {
+        name: lord.displayName(),
+      }),
+      buttons: [
+        {
+          text: translateText("events_display.focus"),
+          className: "btn-gray",
+          action: () => this.eventBus.emit(new GoToPlayerEvent(lord)),
+          preventClose: true,
+        },
+        {
+          text: translateText("events_display.surrender_yes"),
+          className: "btn",
+          action: () =>
+            this.eventBus.emit(new SendSurrenderIntentEvent(e.vassal, lord)),
+        },
+        {
+          text: translateText("events_display.surrender_cancel"),
+          className: "btn-info",
+          action: () => {},
+        },
+      ],
+      type: MessageType.SURRENDER_CONFIRM,
+      createdAt: this.game.ticks(),
+      priority: 0,
+      duration: 600,
+      focusID: lord.smallID(),
+      requestorID: lord.smallID(),
+    });
+  }
+
   private onLandSaleOfferEvent(update: LandSaleOfferUpdate) {
     const myPlayer = this.game.myPlayer();
-    if (!myPlayer || update.buyerID !== myPlayer.smallID()) return;
-    const seller = this.game.playerBySmallID(update.sellerID) as PlayerView;
+    if (!myPlayer || update.recipientID !== myPlayer.smallID()) return;
+    const iAmBuyer = update.recipientID === update.buyerID;
+    const otherId = iAmBuyer ? update.sellerID : update.buyerID;
+    const other = this.game.playerBySmallID(otherId) as PlayerView;
     const tiles = update.tiles;
     const offerId = update.offerId;
     let cx = 0;
@@ -286,13 +336,18 @@ export class ActionableEvents extends LitElement implements Controller {
     cx = tiles.length > 0 ? cx / tiles.length : 0;
     cy = tiles.length > 0 ? cy / tiles.length : 0;
 
-    this.eventBus.emit(new PlaySoundEffectEvent("alliance-suggested"));
+    this.eventBus.emit(new PlaySoundEffectEvent("land-offer"));
     this.addEvent({
-      description: translateText("events_display.land_sale_offer", {
-        name: seller.displayName(),
-        tiles: tiles.length,
-        price: renderNumber(update.price),
-      }),
+      description: translateText(
+        iAmBuyer
+          ? "events_display.land_sale_offer"
+          : "events_display.land_sale_buy_offer",
+        {
+          name: other.displayName(),
+          tiles: tiles.length,
+          price: renderNumber(update.price),
+        },
+      ),
       buttons: [
         {
           text: translateText("events_display.focus"),
@@ -304,12 +359,34 @@ export class ActionableEvents extends LitElement implements Controller {
           preventClose: true,
         },
         {
-          text: translateText("events_display.accept_land_sale"),
+          text: translateText(
+            iAmBuyer
+              ? "events_display.accept_land_sale"
+              : "events_display.land_sale_sell",
+          ),
           className: "btn",
           action: () =>
             this.eventBus.emit(
               new SendRespondLandSaleIntentEvent(offerId, true),
             ),
+        },
+        {
+          text: translateText("events_display.land_sale_counter"),
+          className: "btn-gray",
+          preventClose: true,
+          action: () => {
+            const k = window.prompt(
+              "Counter price (K gold):",
+              String(Math.round(Number(update.price) / 1000)),
+            );
+            if (k === null) return;
+            const n = Math.floor(Number(k));
+            if (!Number.isFinite(n) || n < 0) return;
+            this.eventBus.emit(
+              new SendCounterLandSaleIntentEvent(offerId, n * 1000),
+            );
+            this.eventBus.emit(new PlaySoundEffectEvent("land-offer"));
+          },
         },
         {
           text: translateText("events_display.decline_land_sale"),
@@ -324,8 +401,8 @@ export class ActionableEvents extends LitElement implements Controller {
       createdAt: this.game.ticks(),
       priority: 0,
       duration: 1800,
-      focusID: update.sellerID,
-      requestorID: update.sellerID,
+      focusID: otherId,
+      requestorID: otherId,
       landSaleOfferId: offerId,
     });
   }

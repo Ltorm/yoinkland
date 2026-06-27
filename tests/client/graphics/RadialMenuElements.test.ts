@@ -303,15 +303,18 @@ describe("RadialMenuElements", () => {
       expect(rootMenuElement.disabled(mockParams)).toBe(false);
     });
 
-    it("should show build and delete menu on own territory", () => {
+    it("should show build and sell-land menu on own territory", () => {
       const subMenu = rootMenuElement.subMenu!(mockParams);
       const buildMenu = subMenu.find((item) => item.id === Slot.Build);
       const attackMenu = subMenu.find((item) => item.id === Slot.Attack);
+      // "Sell Land" now occupies the old Delete-Unit slot on own territory.
+      const sellMenu = subMenu.find((item) => item.id === "sell_land");
       const deleteMenu = subMenu.find((item) => item.id === Slot.Delete);
 
       expect(buildMenu).toBeDefined();
       expect(attackMenu).toBeUndefined();
-      expect(deleteMenu).toBeDefined();
+      expect(sellMenu).toBeDefined();
+      expect(deleteMenu).toBeUndefined();
     });
 
     it("should show attack and boat menu on enemy territory", () => {

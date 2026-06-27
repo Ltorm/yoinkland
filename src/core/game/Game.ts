@@ -701,11 +701,13 @@ export interface Player {
   bestTransportShipSpawn(tile: TileRef): TileRef | false;
 }
 
-// A pending land-sale offer from a seller to a bordering buyer.
+// A pending land-sale offer. `recipient` is the party who must respond (the
+// buyer for a sell offer, the seller for a buy offer / after a counter).
 export interface LandSaleOffer {
   offerId: number;
   seller: Player;
   buyer: Player;
+  recipient: Player;
   tiles: TileRef[];
   price: Gold;
 }
@@ -833,6 +835,7 @@ export interface Game extends GameMap {
   createLandSaleOffer(
     seller: Player,
     buyer: Player,
+    recipient: Player,
     tiles: TileRef[],
     price: Gold,
   ): number;
@@ -950,6 +953,7 @@ export enum MessageType {
   CHAT,
   RENEW_ALLIANCE,
   LAND_SALE_OFFER,
+  SURRENDER_CONFIRM,
 }
 
 // Message categories used for filtering events in the EventsDisplay
@@ -979,6 +983,7 @@ export const MESSAGE_TYPE_CATEGORIES: Record<MessageType, MessageCategory> = {
   [MessageType.ALLIANCE_ACCEPTED]: MessageCategory.ALLIANCE,
   [MessageType.ALLIANCE_REJECTED]: MessageCategory.ALLIANCE,
   [MessageType.ALLIANCE_REQUEST]: MessageCategory.ALLIANCE,
+  [MessageType.SURRENDER_CONFIRM]: MessageCategory.ALLIANCE,
   [MessageType.ALLIANCE_BROKEN]: MessageCategory.ALLIANCE,
   [MessageType.ALLIANCE_EXPIRED]: MessageCategory.ALLIANCE,
   [MessageType.RENEW_ALLIANCE]: MessageCategory.ALLIANCE,

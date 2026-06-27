@@ -80,6 +80,7 @@ function stateFromUpdate(pu: PlayerUpdate): PlayerState {
     gold: Number(pu.gold!),
     troops: pu.troops!,
     isTraitor: pu.isTraitor!,
+    vassalLordID: pu.vassalLordID ?? null,
     traitorRemainingTicks: Math.max(0, pu.traitorRemainingTicks ?? 0),
     betrayals: pu.betrayals!,
     hasSpawned: pu.hasSpawned!,
@@ -586,6 +587,11 @@ export class PlayerView {
 
   isTraitor(): boolean {
     return this.state.isTraitor;
+  }
+
+  /** Whether this player has surrendered to (is the vassal of) another player. */
+  isVassal(): boolean {
+    return this.state.vassalLordID !== null;
   }
   getTraitorRemainingTicks(): number {
     return this.state.traitorRemainingTicks;

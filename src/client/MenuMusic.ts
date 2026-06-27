@@ -61,16 +61,16 @@ function applyAudio(): void {
 }
 
 function syncPlayState(): void {
+  // Keep the music playing on the menu AND in-game (the mute toggle stays
+  // available so it can be silenced).
   if (player !== null) {
     try {
-      if (inGame()) player.pauseVideo();
-      else player.playVideo();
+      player.playVideo();
     } catch {
       /* not ready */
     }
   }
-  // Hide the toggle in-game; show it on the menu.
-  if (button !== null) button.style.display = inGame() ? "none" : "flex";
+  if (button !== null) button.style.display = "flex";
 }
 
 function updateButton(): void {

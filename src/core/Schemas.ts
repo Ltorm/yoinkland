@@ -47,6 +47,7 @@ export type Intent =
   | FireTrebuchetIntent
   | ProposeLandSaleIntent
   | RespondLandSaleIntent
+  | CounterLandSaleIntent
   | EmbargoIntent
   | QuickChatIntent
   | MoveWarshipIntent
@@ -80,6 +81,7 @@ export type BuildLandBridgeIntent = z.infer<typeof BuildLandBridgeIntentSchema>;
 export type FireTrebuchetIntent = z.infer<typeof FireTrebuchetIntentSchema>;
 export type ProposeLandSaleIntent = z.infer<typeof ProposeLandSaleIntentSchema>;
 export type RespondLandSaleIntent = z.infer<typeof RespondLandSaleIntentSchema>;
+export type CounterLandSaleIntent = z.infer<typeof CounterLandSaleIntentSchema>;
 export type UpgradeStructureIntent = z.infer<
   typeof UpgradeStructureIntentSchema
 >;
@@ -491,11 +493,13 @@ export const FireTrebuchetIntentSchema = z.object({
 
 export const ProposeLandSaleIntentSchema = z.object({
   type: z.literal("propose_land_sale"),
-  // The neighbor being offered the parcel.
+  // Who owns/sells the parcel. The sender must be the seller OR the buyer.
+  seller: ID,
+  // Who buys the parcel.
   buyer: ID,
-  // Tiles of the seller's land being offered.
+  // Tiles of the seller's land being offered (or requested, for a buy offer).
   tiles: z.array(z.number()),
-  // Asking price in gold.
+  // Price in gold.
   price: z.number().nonnegative(),
 });
 
@@ -503,6 +507,13 @@ export const RespondLandSaleIntentSchema = z.object({
   type: z.literal("respond_land_sale"),
   offerId: z.number().int(),
   accept: z.boolean(),
+});
+
+export const CounterLandSaleIntentSchema = z.object({
+  type: z.literal("counter_land_sale"),
+  offerId: z.number().int(),
+  // The counter price; the offer flips back to the other party to respond.
+  price: z.number().nonnegative(),
 });
 
 export const CancelAttackIntentSchema = z.object({
@@ -584,6 +595,7 @@ export const IntentSchema = z.discriminatedUnion("type", [
   FireTrebuchetIntentSchema,
   ProposeLandSaleIntentSchema,
   RespondLandSaleIntentSchema,
+  CounterLandSaleIntentSchema,
   EmbargoIntentSchema,
   EmbargoAllIntentSchema,
   MoveWarshipIntentSchema,

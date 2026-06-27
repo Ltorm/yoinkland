@@ -42,6 +42,8 @@ export class WebGLFrameBuilder {
   private localPlayerSmallID = 0;
   // Scratch buffer for terrain-delta uploads (parallel to the refs list).
   private terrainDeltaBytes: Uint8Array = new Uint8Array(0);
+  // IDs of players currently flagged as vassals (drives the "[V]" name tag).
+  private vassalIds = new Set<string>();
 
   constructor(private readonly view: MapRenderer) {
     this.palette = new Float32Array(PALETTE_SIZE * 2 * 4);
@@ -78,7 +80,10 @@ export class WebGLFrameBuilder {
   refreshNames(gameView: GameView): void {
     const displayNames = new Map<string, string>();
     for (const p of gameView.players()) {
-      displayNames.set(p.id(), p.displayName());
+      // Mark vassals with a "[V]" tag on their map name (glyphs in the MSDF
+      // font atlas) so it's obvious who has surrendered to another player.
+      const name = p.isVassal() ? `[V] ${p.displayName()}` : p.displayName();
+      displayNames.set(p.id(), name);
     }
     this.view.refreshNames(displayNames);
   }
@@ -88,8 +93,34 @@ export class WebGLFrameBuilder {
     this.syncPlayerSpawns(gameView);
     this.syncLocalPlayer(gameView);
     this.syncSpawnOverlay(gameView);
+    this.syncVassalNames(gameView);
     this.syncTerrainDeltas(gameView);
     uploadFrameData(this.view, gameView.frameData());
+  }
+
+  /**
+   * Re-resolve map names only when the SET of vassals changes (surrender /
+   * release / lord eliminated) — refreshNames forces a full name re-upload, so
+   * we must not call it every tick.
+   */
+  private syncVassalNames(gameView: GameView): void {
+    const current = new Set<string>();
+    for (const p of gameView.players()) {
+      if (p.isVassal()) current.add(p.id());
+    }
+    let changed = current.size !== this.vassalIds.size;
+    if (!changed) {
+      for (const id of current) {
+        if (!this.vassalIds.has(id)) {
+          changed = true;
+          break;
+        }
+      }
+    }
+    if (changed) {
+      this.vassalIds = current;
+      this.refreshNames(gameView);
+    }
   }
 
   /**

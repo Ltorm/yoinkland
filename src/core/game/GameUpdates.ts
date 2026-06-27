@@ -176,6 +176,7 @@ export interface LandSaleOfferUpdate {
   offerId: number;
   sellerID: number; // smallID
   buyerID: number; // smallID
+  recipientID: number; // smallID of the party who must respond
   tiles: TileRef[];
   price: Gold;
 }
@@ -253,6 +254,8 @@ export interface PlayerUpdate {
   allies?: number[];
   embargoes?: Set<PlayerID>;
   isTraitor?: boolean;
+  // smallID of the lord this player has surrendered to (null/absent if free).
+  vassalLordID?: number | null;
   traitorRemainingTicks?: number;
   targets?: number[];
   outgoingEmojis?: EmojiMessage[];

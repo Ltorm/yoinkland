@@ -1,3 +1,4 @@
+import { CounterLandSaleExecution } from "../src/core/execution/CounterLandSaleExecution";
 import { ProposeLandSaleExecution } from "../src/core/execution/ProposeLandSaleExecution";
 import { RespondLandSaleExecution } from "../src/core/execution/RespondLandSaleExecution";
 import {
@@ -97,7 +98,13 @@ describe("Land sale", () => {
     const price = 100_000n;
 
     game.addExecution(
-      new ProposeLandSaleExecution(seller, buyer.id(), parcel, Number(price)),
+      new ProposeLandSaleExecution(
+        seller,
+        seller.id(),
+        buyer.id(),
+        parcel,
+        Number(price),
+      ),
     );
     executeTicks(game, 3);
     expect(game.landSaleOffer(1)).toBeDefined();
@@ -120,7 +127,13 @@ describe("Land sale", () => {
     const buyerGold = buyer.gold();
 
     game.addExecution(
-      new ProposeLandSaleExecution(seller, buyer.id(), parcel, 100_000),
+      new ProposeLandSaleExecution(
+        seller,
+        seller.id(),
+        buyer.id(),
+        parcel,
+        100_000,
+      ),
     );
     executeTicks(game, 3);
     game.addExecution(new RespondLandSaleExecution(buyer, 1, false));
@@ -137,17 +150,85 @@ describe("Land sale", () => {
     const farParcel: number[] = [];
     for (let y = 25; y <= 30; y++) farParcel.push(game.ref(11, y));
     game.addExecution(
-      new ProposeLandSaleExecution(seller, buyer.id(), farParcel, 100_000),
+      new ProposeLandSaleExecution(
+        seller,
+        seller.id(),
+        buyer.id(),
+        farParcel,
+        100_000,
+      ),
     );
     executeTicks(game, 3);
     expect(game.landSaleOffer(1)).toBeUndefined();
+  });
+
+  test("buy offer: buyer proposes, seller accepts, parcel transfers", () => {
+    buyer.addGold(1_000_000n);
+    const sellerGold = seller.gold();
+    const buyerGold = buyer.gold();
+    const price = 100_000n;
+    // Buyer proposes to BUY the seller's parcel (reverse direction).
+    game.addExecution(
+      new ProposeLandSaleExecution(
+        buyer,
+        seller.id(),
+        buyer.id(),
+        parcel,
+        Number(price),
+      ),
+    );
+    executeTicks(game, 3);
+    expect(game.landSaleOffer(1)).toBeDefined();
+    // The seller is the recipient and accepts.
+    game.addExecution(new RespondLandSaleExecution(seller, 1, true));
+    executeTicks(game, 3);
+    for (const t of parcel) expect(game.owner(t)).toBe(buyer);
+    expect(buyer.gold()).toBe(buyerGold - price);
+    expect(seller.gold()).toBe(sellerGold + price);
+  });
+
+  test("counter flips who must respond and updates the price", () => {
+    buyer.addGold(1_000_000n);
+    const sellerGold = seller.gold();
+    const buyerGold = buyer.gold();
+    game.addExecution(
+      new ProposeLandSaleExecution(
+        seller,
+        seller.id(),
+        buyer.id(),
+        parcel,
+        200_000,
+      ),
+    );
+    executeTicks(game, 3);
+    // Buyer (recipient) counters at 120k → old offer cleared, new offer for seller.
+    game.addExecution(new CounterLandSaleExecution(buyer, 1, 120_000));
+    executeTicks(game, 3);
+    expect(game.landSaleOffer(1)).toBeUndefined();
+    expect(game.landSaleOffer(2)).toBeDefined();
+    // Buyer cannot accept now (the seller is the recipient).
+    game.addExecution(new RespondLandSaleExecution(buyer, 2, true));
+    executeTicks(game, 3);
+    for (const t of parcel) expect(game.owner(t)).toBe(seller);
+    // Seller accepts the counter.
+    game.addExecution(new RespondLandSaleExecution(seller, 2, true));
+    executeTicks(game, 3);
+    for (const t of parcel) expect(game.owner(t)).toBe(buyer);
+    expect(buyer.gold()).toBe(buyerGold - 120_000n);
+    expect(seller.gold()).toBe(sellerGold + 120_000n);
   });
 
   test("accept fails when the buyer can't afford it", () => {
     // buyer has only starting gold; ask an absurd price.
     const buyerGold = buyer.gold();
     game.addExecution(
-      new ProposeLandSaleExecution(seller, buyer.id(), parcel, 999_999_999),
+      new ProposeLandSaleExecution(
+        seller,
+        seller.id(),
+        buyer.id(),
+        parcel,
+        999_999_999,
+      ),
     );
     executeTicks(game, 3);
     game.addExecution(new RespondLandSaleExecution(buyer, 1, true));

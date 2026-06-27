@@ -16,6 +16,7 @@ export type SoundEffect =
   | "build-warship"
   | "sam-built"
   | "message"
+  | "land-offer"
   | "click";
 
 export const soundEffectUrls: ReadonlyMap<SoundEffect, string> = new Map([
@@ -33,6 +34,8 @@ export const soundEffectUrls: ReadonlyMap<SoundEffect, string> = new Map([
   ["build-warship", assetUrl("sounds/effects/build-warship.mp3")],
   ["sam-built", assetUrl("sounds/effects/sam-built.mp3")],
   ["message", assetUrl("sounds/effects/message.mp3")],
+  // Played on incoming/outgoing land-sale & land-buy offers.
+  ["land-offer", assetUrl("sounds/effects/WHY-dont-I-own.mp3")],
   ["click", assetUrl("sounds/effects/click.mp3")],
 ]);
 

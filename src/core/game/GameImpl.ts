@@ -369,6 +369,7 @@ export class GameImpl implements Game {
   createLandSaleOffer(
     seller: Player,
     buyer: Player,
+    recipient: Player,
     tiles: TileRef[],
     price: Gold,
   ): number {
@@ -377,6 +378,7 @@ export class GameImpl implements Game {
       offerId,
       seller,
       buyer,
+      recipient,
       tiles: [...tiles],
       price,
     };
@@ -386,6 +388,7 @@ export class GameImpl implements Game {
       offerId,
       sellerID: seller.smallID(),
       buyerID: buyer.smallID(),
+      recipientID: recipient.smallID(),
       tiles: offer.tiles,
       price,
     });

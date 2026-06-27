@@ -35,6 +35,7 @@ function ps(overrides: Partial<PlayerState> = {}): PlayerState {
     gold: 0,
     troops: 0,
     isTraitor: false,
+    vassalLordID: null,
     traitorRemainingTicks: 0,
     betrayals: 0,
     hasSpawned: true,

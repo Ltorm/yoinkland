@@ -205,19 +205,17 @@ export class WinModal extends LitElement implements Controller {
   discordDisplay(): TemplateResult {
     return html`
       <div class="text-center mb-6 bg-black/30 p-2.5 rounded-sm">
-        <h3 class="text-xl font-semibold text-white mb-3">
-          ${translateText("win_modal.join_discord")}
-        </h3>
-        <p class="text-white mb-3">
-          ${translateText("win_modal.discord_description")}
+        <p class="text-white text-xl font-semibold mb-3">
+          ${translateText("win_modal.stock_picks")}
         </p>
         <a
-          href="https://discord.com/invite/openfront"
+          href="https://deepvalueflow.com"
           target="_blank"
           rel="noopener noreferrer"
-          class="inline-block px-6 py-3 bg-indigo-600 text-white rounded-sm font-semibold transition-all duration-200 hover:bg-indigo-700 hover:-translate-y-px no-underline"
+          aria-label="DeepValueFlow"
+          class="inline-block px-6 py-3 bg-green-600 text-white rounded-sm font-bold text-2xl transition-all duration-200 hover:bg-green-700 hover:-translate-y-px no-underline"
         >
-          ${translateText("win_modal.join_server")}
+          $
         </a>
       </div>
     `;

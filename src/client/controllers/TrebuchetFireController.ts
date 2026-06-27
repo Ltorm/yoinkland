@@ -29,6 +29,10 @@ const SELECT_RADIUS = 5; // tiles around the click that count as "on the trebuch
 // distance. Lower = a longer pull-back drag for the same range (more slingshot
 // feel) — 5.625 makes the pull ~60% longer than the original 9.
 const PULL_TO_DISTANCE = 5.625;
+// Initial "dead" pull, in grid cells: the first stretch of the pull-back maps
+// to ZERO travel before the shot starts flying, so there's lots of room for
+// small/fine short-range adjustments (the readout starts at 0 instead of ~1.5).
+const PULL_DEADZONE_GRIDS = 1.5;
 
 interface Aim {
   target: TileRef;
@@ -47,6 +51,7 @@ export class TrebuchetFireController implements Controller {
   // Unique map icons (all players), camera-tracked each frame.
   private trebIcons = new Map<number, HTMLImageElement>();
   private rockIcons = new Map<number, HTMLImageElement>();
+  private audioCtx: AudioContext | null = null;
   // Reload countdown shown below each trebuchet on cooldown.
   private cooldownLabels = new Map<number, HTMLDivElement>();
   // Per-boulder interpolation state so the flying rock isn't choppy.
@@ -229,10 +234,158 @@ export class TrebuchetFireController implements Controller {
     }
     for (const [id, img] of this.rockIcons) {
       if (!seenB.has(id)) {
+        // If the boulder's last tile was water, make a splash where it landed.
+        const st = this.rockLerp.get(id);
+        if (st !== undefined && this.game.isValidCoord(st.cx, st.cy)) {
+          const t = this.game.ref(st.cx, st.cy);
+          if (this.game.isWater(t)) this.spawnSplash(st.cx, st.cy);
+          else this.playBoomSound();
+        }
         img.remove();
         this.rockIcons.delete(id);
         this.rockLerp.delete(id);
       }
+    }
+  }
+
+  // ── Water splash (boulder landing in the sea) ──────────────────────────
+  private spawnSplash(wx: number, wy: number) {
+    const s = this.transformHandler.worldToScreenCoordinates(new Cell(wx, wy));
+    // Expanding rings, asset-free via the Web Animations API.
+    for (let i = 0; i < 2; i++) {
+      const ring = document.createElement("div");
+      const size = 26;
+      ring.style.cssText = [
+        "position:fixed",
+        `left:${s.x - size / 2}px`,
+        `top:${s.y - size / 2}px`,
+        `width:${size}px`,
+        `height:${size}px`,
+        "border-radius:50%",
+        "border:3px solid rgba(170,225,255,0.9)",
+        "box-shadow:0 0 10px rgba(120,200,255,0.7)",
+        "pointer-events:none",
+        "z-index:9996",
+      ].join(";");
+      document.body.appendChild(ring);
+      ring.animate(
+        [
+          { transform: `scale(${0.3 + i * 0.2})`, opacity: 0.9 },
+          { transform: `scale(${2.6 + i * 0.8})`, opacity: 0 },
+        ],
+        { duration: 700 + i * 250, easing: "ease-out", delay: i * 90 },
+      ).onfinish = () => ring.remove();
+    }
+    this.playSplashSound();
+  }
+
+  private playSplashSound() {
+    try {
+      const Ctx =
+        window.AudioContext ??
+        (window as unknown as { webkitAudioContext: typeof AudioContext })
+          .webkitAudioContext;
+      if (!Ctx) return;
+      if (this.audioCtx === null) this.audioCtx = new Ctx();
+      const ctx = this.audioCtx;
+      const t0 = ctx.currentTime;
+
+      // "Bloop" — a cartoonish water-drop: a sine that swoops up then dives
+      // down, with a plucky envelope. This is what makes it sound funny.
+      const osc = ctx.createOscillator();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(260, t0);
+      osc.frequency.exponentialRampToValueAtTime(820, t0 + 0.05);
+      osc.frequency.exponentialRampToValueAtTime(120, t0 + 0.26);
+      const oscGain = ctx.createGain();
+      oscGain.gain.setValueAtTime(0.0001, t0);
+      oscGain.gain.exponentialRampToValueAtTime(0.5, t0 + 0.02);
+      oscGain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.34);
+      osc.connect(oscGain);
+      oscGain.connect(ctx.destination);
+      osc.start(t0);
+      osc.stop(t0 + 0.36);
+
+      // "Sploosh" — a soft noise tail for the watery texture under the bloop.
+      const dur = 0.28;
+      const buffer = ctx.createBuffer(
+        1,
+        Math.floor(ctx.sampleRate * dur),
+        ctx.sampleRate,
+      );
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < data.length; i++) {
+        const p = i / data.length;
+        data[i] = (Math.random() * 2 - 1) * Math.pow(1 - p, 2.6);
+      }
+      const noise = ctx.createBufferSource();
+      noise.buffer = buffer;
+      const filter = ctx.createBiquadFilter();
+      filter.type = "lowpass";
+      filter.frequency.setValueAtTime(1300, t0);
+      filter.frequency.exponentialRampToValueAtTime(280, t0 + dur);
+      const noiseGain = ctx.createGain();
+      noiseGain.gain.value = 0.16;
+      noise.connect(filter);
+      filter.connect(noiseGain);
+      noiseGain.connect(ctx.destination);
+      noise.start(t0 + 0.03);
+    } catch {
+      /* audio not available */
+    }
+  }
+
+  private playBoomSound() {
+    try {
+      const Ctx =
+        window.AudioContext ??
+        (window as unknown as { webkitAudioContext: typeof AudioContext })
+          .webkitAudioContext;
+      if (!Ctx) return;
+      if (this.audioCtx === null) this.audioCtx = new Ctx();
+      const ctx = this.audioCtx;
+      const t0 = ctx.currentTime;
+
+      // Boom body — a deep sine "thud" that drops in pitch fast.
+      const osc = ctx.createOscillator();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(150, t0);
+      osc.frequency.exponentialRampToValueAtTime(40, t0 + 0.3);
+      const oscGain = ctx.createGain();
+      oscGain.gain.setValueAtTime(0.0001, t0);
+      oscGain.gain.exponentialRampToValueAtTime(0.7, t0 + 0.01);
+      oscGain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.5);
+      osc.connect(oscGain);
+      oscGain.connect(ctx.destination);
+      osc.start(t0);
+      osc.stop(t0 + 0.52);
+
+      // Crash — a short filtered-noise crack for the rocky impact.
+      const dur = 0.32;
+      const buffer = ctx.createBuffer(
+        1,
+        Math.floor(ctx.sampleRate * dur),
+        ctx.sampleRate,
+      );
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < data.length; i++) {
+        const p = i / data.length;
+        data[i] = (Math.random() * 2 - 1) * Math.pow(1 - p, 1.8);
+      }
+      const noise = ctx.createBufferSource();
+      noise.buffer = buffer;
+      const filter = ctx.createBiquadFilter();
+      filter.type = "lowpass";
+      filter.frequency.setValueAtTime(2600, t0);
+      filter.frequency.exponentialRampToValueAtTime(400, t0 + dur);
+      const noiseGain = ctx.createGain();
+      noiseGain.gain.value = 0.32;
+      noise.connect(filter);
+      filter.connect(noiseGain);
+      noiseGain.connect(ctx.destination);
+      noise.start(t0);
+    } catch {
+      /* audio not available */
     }
   }
 
@@ -282,7 +435,13 @@ export class TrebuchetFireController implements Controller {
     if (pullLen < 1)
       return { target: this.originTile, dist: 0, power: 0, cursorDist: 0 };
 
-    const dist = Math.min(pullLen * PULL_TO_DISTANCE, range);
+    // Subtract a grid-relative deadzone so short pulls fly 0 grids, then ramp.
+    const cellSize = gridCellSize(this.game.width(), this.game.height());
+    const deadzoneTiles = PULL_DEADZONE_GRIDS * cellSize;
+    const dist = Math.max(
+      0,
+      Math.min(pullLen * PULL_TO_DISTANCE - deadzoneTiles, range),
+    );
     const tx = Math.round(ox - (pullX / pullLen) * dist);
     const ty = Math.round(oy - (pullY / pullLen) * dist);
     const cx = Math.max(0, Math.min(this.game.width() - 1, tx));

@@ -9,6 +9,7 @@ import { BreakAllianceExecution } from "./alliance/BreakAllianceExecution";
 import { AttackExecution } from "./AttackExecution";
 import { BoatRetreatExecution } from "./BoatRetreatExecution";
 import { ConstructionExecution } from "./ConstructionExecution";
+import { CounterLandSaleExecution } from "./CounterLandSaleExecution";
 import { DeleteUnitExecution } from "./DeleteUnitExecution";
 import { DonateGoldExecution } from "./DonateGoldExecution";
 import { DonateTroopsExecution } from "./DonateTroopExecution";
@@ -132,6 +133,7 @@ export class Executor {
       case "propose_land_sale":
         return new ProposeLandSaleExecution(
           player,
+          intent.seller,
           intent.buyer,
           intent.tiles,
           intent.price,
@@ -141,6 +143,12 @@ export class Executor {
           player,
           intent.offerId,
           intent.accept,
+        );
+      case "counter_land_sale":
+        return new CounterLandSaleExecution(
+          player,
+          intent.offerId,
+          intent.price,
         );
       case "upgrade_structure":
         return new UpgradeStructureExecution(player, intent.unitId);

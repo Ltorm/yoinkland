@@ -17,31 +17,46 @@ import {
   LandSaleFocusEvent,
   MouseDownEvent,
   MouseMoveEvent,
+  MouseOverEvent,
   MouseUpEvent,
   SellLandModeEvent,
 } from "../InputHandler";
 import { OWNER_MASK } from "../render/gl/utils/TileCodec";
+import { PlaySoundEffectEvent } from "../sound/Sounds";
 import { TransformHandler } from "../TransformHandler";
 import { SendProposeLandSaleIntentEvent } from "../Transport";
 import { UIState } from "../UIState";
 import { GameView, PlayerView } from "../view";
 
-const MAX_PARCEL_TILES = 4000;
+// Keep in sync with ProposeLandSaleExecution — bounds the offer intent size.
+const MAX_PARCEL_TILES = 1500;
 const MAX_LASSO_BBOX = 400; // tiles per side — guards the point-in-polygon scan
 const GLOW_MS = 7000;
+const DRAG_THRESHOLD = 8; // screen px — beyond this a press counts as a freeform drag
+const CLOSE_RADIUS = 28; // screen px — clicking within this of the start point closes
+const MIN_VERTICES = 3;
 
 export class SellLandController implements Controller {
-  private lasso: Array<{ x: number; y: number }> | null = null; // screen path
+  private lasso: Array<{ x: number; y: number }> | null = null; // WORLD vertices
+  private cursor: { x: number; y: number } | null = null; // WORLD cursor pos
+  private pressStartScreen: { x: number; y: number } | null = null;
+  private dragging = false;
+  private lastPushScreen: { x: number; y: number } | null = null;
   private parcel: TileRef[] = [];
   private parcelSet = new Set<TileRef>();
-  private neighbors: PlayerView[] = [];
-  private selectedNeighbor: PlayerView | null = null;
+  // sell = my land → pick a neighbor buyer; buy = a neighbor's land → I buy it.
+  private sellMode = true;
+  private neighbors: PlayerView[] = []; // sell: candidate buyers; buy: [owner]
+  private selectedNeighbor: PlayerView | null = null; // the counterparty
+  private canTransact = false;
   private glow: { tiles: Set<TileRef>; until: number } | null = null;
 
   private svg: SVGSVGElement | null = null;
   private lassoPath: SVGPathElement | null = null;
   private parcelPath: SVGPathElement | null = null;
   private glowPath: SVGPathElement | null = null;
+  private endpointRing: SVGCircleElement | null = null;
+  private endpointDot: SVGCircleElement | null = null;
   private panel: HTMLDivElement | null = null;
 
   constructor(
@@ -56,6 +71,11 @@ export class SellLandController implements Controller {
     this.eventBus.on(MouseDownEvent, (e) => this.onDown(e.x, e.y));
     this.eventBus.on(MouseMoveEvent, (e) => this.onMove(e.x, e.y));
     this.eventBus.on(MouseUpEvent, (e) => this.onUp(e.x, e.y));
+    // Hover moves arrive as MouseOver (no button) — track them for the
+    // rubber-band line to the cursor while placing vertices.
+    this.eventBus.on(MouseOverEvent, (e) => {
+      if (this.uiState.sellLandMode) this.cursor = this.toWorld(e.x, e.y);
+    });
     this.eventBus.on(LandSaleFocusEvent, (e) => {
       this.glow = { tiles: new Set(e.tiles), until: Date.now() + GLOW_MS };
     });
@@ -77,10 +97,16 @@ export class SellLandController implements Controller {
 
   private reset() {
     this.lasso = null;
+    this.cursor = null;
+    this.pressStartScreen = null;
+    this.dragging = false;
+    this.lastPushScreen = null;
     this.parcel = [];
     this.parcelSet = new Set();
     this.neighbors = [];
     this.selectedNeighbor = null;
+    this.canTransact = false;
+    this.sellMode = true;
     this.hidePanel();
   }
 
@@ -90,41 +116,120 @@ export class SellLandController implements Controller {
     this.eventBus.emit(new SellLandModeEvent(false));
   }
 
-  private onDown(screenX: number, screenY: number) {
-    if (!this.uiState.sellLandMode) return;
-    // Restart a fresh lasso (drop any previous selection/panel).
+  private toWorld(sx: number, sy: number): { x: number; y: number } {
+    const c = this.transformHandler.screenToWorldCoordinates(sx, sy);
+    return { x: c.x, y: c.y };
+  }
+
+  private startFreshLasso() {
     this.parcel = [];
     this.parcelSet = new Set();
     this.hidePanel();
-    this.lasso = [{ x: screenX, y: screenY }];
+    this.lasso = [];
+  }
+
+  private clearDrawing() {
+    this.lasso = null;
+    this.lastPushScreen = null;
+    this.dragging = false;
+  }
+
+  private onDown(screenX: number, screenY: number) {
+    if (!this.uiState.sellLandMode) return;
+    this.pressStartScreen = { x: screenX, y: screenY };
+    this.dragging = false;
   }
 
   private onMove(screenX: number, screenY: number) {
-    if (!this.uiState.sellLandMode || this.lasso === null) return;
-    const last = this.lasso[this.lasso.length - 1];
-    if (Math.hypot(screenX - last.x, screenY - last.y) >= 3) {
-      this.lasso.push({ x: screenX, y: screenY });
+    if (!this.uiState.sellLandMode) return;
+    this.cursor = this.toWorld(screenX, screenY);
+    if (this.pressStartScreen === null) return; // not pressing → just hover
+    const moved = Math.hypot(
+      screenX - this.pressStartScreen.x,
+      screenY - this.pressStartScreen.y,
+    );
+    if (moved > DRAG_THRESHOLD) this.dragging = true;
+    if (!this.dragging) return;
+    // Freeform drag: append points (sparsely) into the polygon.
+    if (this.lasso === null) {
+      this.startFreshLasso();
+      this.lasso!.push(
+        this.toWorld(this.pressStartScreen.x, this.pressStartScreen.y),
+      );
+      this.lastPushScreen = { ...this.pressStartScreen };
+    }
+    if (
+      this.lastPushScreen === null ||
+      Math.hypot(
+        screenX - this.lastPushScreen.x,
+        screenY - this.lastPushScreen.y,
+      ) >= 4
+    ) {
+      this.lasso!.push(this.toWorld(screenX, screenY));
+      this.lastPushScreen = { x: screenX, y: screenY };
     }
   }
 
   private onUp(screenX: number, screenY: number) {
-    if (!this.uiState.sellLandMode || this.lasso === null) return;
-    this.finalizeLasso();
-    this.lasso = null;
+    if (!this.uiState.sellLandMode) return;
+    const wasDrag = this.dragging;
+    const press = this.pressStartScreen;
+    this.pressStartScreen = null;
+    this.dragging = false;
+    this.lastPushScreen = null;
+
+    // pointerup is bound to window, so panel-button clicks land here too —
+    // but those have no matching map pointerdown (press === null). Ignore them
+    // so clicking Send/Cancel/neighbor doesn't place a vertex or hide the panel.
+    if (press === null) return;
+
+    if (wasDrag) {
+      // A freeform drag-lasso finishes on release.
+      if (this.lasso !== null && this.lasso.length >= MIN_VERTICES) {
+        this.finalizeLasso();
+      } else {
+        this.clearDrawing();
+      }
+      return;
+    }
+
+    // A click. Ignore if the pointer actually moved a bit (jittery click).
+    if (
+      press !== null &&
+      Math.hypot(screenX - press.x, screenY - press.y) > DRAG_THRESHOLD
+    ) {
+      return;
+    }
+
+    // Clicking the big start-point box closes the loop.
+    if (this.lasso !== null && this.lasso.length >= MIN_VERTICES) {
+      const start = this.transformHandler.worldToScreenCoordinates(
+        new Cell(this.lasso[0].x, this.lasso[0].y),
+      );
+      if (Math.hypot(screenX - start.x, screenY - start.y) <= CLOSE_RADIUS) {
+        this.finalizeLasso();
+        return;
+      }
+    }
+
+    // Otherwise place a vertex.
+    if (this.lasso === null) this.startFreshLasso();
+    this.lasso!.push(this.toWorld(screenX, screenY));
   }
 
   // ── Parcel selection ───────────────────────────────────────────────────
   private finalizeLasso() {
     const smallID = this.mySmallID();
-    if (smallID === null || this.lasso === null || this.lasso.length < 3) {
+    if (
+      smallID === null ||
+      this.lasso === null ||
+      this.lasso.length < MIN_VERTICES
+    ) {
       this.reset();
       return;
     }
-    // Lasso path → world polygon.
-    const poly = this.lasso.map((p) => {
-      const c = this.transformHandler.screenToWorldCoordinates(p.x, p.y);
-      return { x: c.x, y: c.y };
-    });
+    // The polygon vertices are already in world space.
+    const poly = this.lasso;
     let minX = Infinity,
       minY = Infinity,
       maxX = -Infinity,
@@ -144,26 +249,66 @@ export class SellLandController implements Controller {
       return;
     }
 
-    const parcel: TileRef[] = [];
-    for (let y = minY; y <= maxY; y++) {
-      for (let x = minX; x <= maxX; x++) {
+    // Collect owned land inside the lasso, grouped by owner.
+    const byOwner = new Map<number, TileRef[]>();
+    let total = 0;
+    for (let y = minY; y <= maxY && total <= MAX_PARCEL_TILES; y++) {
+      for (let x = minX; x <= maxX && total <= MAX_PARCEL_TILES; x++) {
         if (!pointInPolygon(x + 0.5, y + 0.5, poly)) continue;
         const t = this.game.ref(x, y);
         if (!this.game.isLand(t)) continue;
-        if ((this.game.tileState(t) & OWNER_MASK) !== smallID) continue;
-        parcel.push(t);
-        if (parcel.length > MAX_PARCEL_TILES) break;
+        const oid = this.game.tileState(t) & OWNER_MASK;
+        if (oid === 0) continue;
+        const arr = byOwner.get(oid) ?? [];
+        arr.push(t);
+        byOwner.set(oid, arr);
+        total++;
       }
-      if (parcel.length > MAX_PARCEL_TILES) break;
     }
-    if (parcel.length === 0 || parcel.length > MAX_PARCEL_TILES) {
+    // The parcel is the dominant single owner's tiles.
+    let bestId = -1;
+    let bestCount = 0;
+    for (const [id, ts] of byOwner) {
+      if (ts.length > bestCount) {
+        bestId = id;
+        bestCount = ts.length;
+      }
+    }
+    if (bestId < 0) {
       this.reset();
       return;
     }
+    const parcel = (byOwner.get(bestId) as TileRef[]).slice(
+      0,
+      MAX_PARCEL_TILES,
+    );
     this.parcel = parcel;
     this.parcelSet = new Set(parcel);
-    this.neighbors = this.borderingNeighbors(smallID);
-    this.selectedNeighbor = this.neighbors[0] ?? null;
+
+    if (bestId === smallID) {
+      // SELL my own land → choose a bordering neighbor to offer it to.
+      this.sellMode = true;
+      this.neighbors = this.borderingNeighbors(smallID);
+      this.selectedNeighbor = this.neighbors[0] ?? null;
+      this.canTransact = this.neighbors.length > 0;
+    } else {
+      // BUY a neighbor's land → I'm the buyer (must border the parcel).
+      this.sellMode = false;
+      const owner = this.game.playerBySmallID(bestId);
+      this.neighbors = owner.isPlayer() ? [owner as PlayerView] : [];
+      this.selectedNeighbor = this.neighbors[0] ?? null;
+      this.canTransact =
+        this.neighbors.length > 0 &&
+        parcel.some((t) =>
+          this.game
+            .neighbors(t)
+            .some((n) => (this.game.tileState(n) & OWNER_MASK) === smallID),
+        );
+    }
+    // Parcel locked in — clear the in-progress polygon (the parcel boundary
+    // now shows instead).
+    this.lasso = null;
+    this.lastPushScreen = null;
     this.showPanel();
   }
 
@@ -213,17 +358,23 @@ export class SellLandController implements Controller {
     if (el === null) return;
     el.replaceChildren();
 
+    const owner = this.selectedNeighbor;
     const title = document.createElement("div");
-    title.textContent = `Sell ${this.parcel.length} tiles`;
+    title.textContent = this.sellMode
+      ? `Sell ${this.parcel.length} tiles`
+      : `Buy ${this.parcel.length} tiles from ${owner?.displayName() ?? "?"}`;
     title.style.cssText = "font-weight:700;margin-bottom:6px;color:#ffd24a;";
     el.appendChild(title);
 
-    if (this.neighbors.length === 0) {
+    if (!this.canTransact) {
       const warn = document.createElement("div");
-      warn.textContent = "No bordering neighbor to sell to.";
+      warn.textContent = this.sellMode
+        ? "No bordering neighbor to sell to."
+        : "Your own land must border this parcel to buy it.";
       warn.style.cssText = "color:#ff8a6a;margin-bottom:6px;";
       el.appendChild(warn);
-    } else {
+    } else if (this.sellMode && this.neighbors.length > 1) {
+      // Let the seller pick which bordering neighbor to offer to.
       const label = document.createElement("div");
       label.textContent = "Offer to:";
       label.style.marginBottom = "4px";
@@ -257,15 +408,18 @@ export class SellLandController implements Controller {
     priceRow.style.cssText =
       "display:flex;align-items:center;gap:6px;margin-bottom:8px;";
     const priceLbl = document.createElement("span");
-    priceLbl.textContent = "Price (gold):";
+    priceLbl.textContent = "Price:";
     const price = document.createElement("input");
     price.type = "number";
     price.min = "0";
-    price.value = "100000";
+    price.value = "100";
     price.id = "sell-land-price";
     price.style.cssText =
-      "width:110px;padding:3px 6px;border-radius:6px;border:1px solid rgba(255,255,255,0.25);background:rgba(0,0,0,0.3);color:#fff;";
-    priceRow.append(priceLbl, price);
+      "width:90px;padding:3px 6px;border-radius:6px;border:1px solid rgba(255,255,255,0.25);background:rgba(0,0,0,0.3);color:#fff;";
+    const k = document.createElement("span");
+    k.textContent = "K gold";
+    k.style.color = "#ffd24a";
+    priceRow.append(priceLbl, price, k);
     el.appendChild(priceRow);
 
     const btns = document.createElement("div");
@@ -276,24 +430,35 @@ export class SellLandController implements Controller {
       "padding:4px 12px;border-radius:6px;cursor:pointer;border:none;background:#555;color:#fff;";
     cancel.onclick = () => this.exitMode();
     const send = document.createElement("button");
-    send.textContent = "Send offer";
-    send.disabled = this.neighbors.length === 0;
-    send.style.cssText = `padding:4px 12px;border-radius:6px;cursor:pointer;border:none;background:${this.neighbors.length === 0 ? "#666" : "#2e8b3d"};color:#fff;`;
+    send.textContent = this.sellMode ? "Send offer" : "Send buy offer";
+    send.disabled = !this.canTransact;
+    send.style.cssText = `padding:4px 12px;border-radius:6px;cursor:pointer;border:none;background:${this.canTransact ? "#2e8b3d" : "#666"};color:#fff;`;
     send.onclick = () => this.send();
     btns.append(cancel, send);
     el.appendChild(btns);
   }
 
   private send() {
-    const buyer = this.selectedNeighbor;
-    if (buyer === null || this.parcel.length === 0) return;
+    const me = this.game.myPlayer();
+    const other = this.selectedNeighbor;
+    if (me === null || other === null || !this.canTransact) return;
     const input = document.getElementById(
       "sell-land-price",
     ) as HTMLInputElement | null;
-    const price = Math.max(0, Math.floor(Number(input?.value ?? 0)));
+    // Input is in thousands.
+    const price = Math.max(0, Math.floor(Number(input?.value ?? 0))) * 1000;
+    const seller = this.sellMode ? me : other;
+    const buyer = this.sellMode ? other : me;
     this.eventBus.emit(
-      new SendProposeLandSaleIntentEvent(buyer, [...this.parcel], price),
+      new SendProposeLandSaleIntentEvent(
+        seller,
+        buyer,
+        [...this.parcel],
+        price,
+      ),
     );
+    // Outgoing offer cue ("why don't I own this?").
+    this.eventBus.emit(new PlaySoundEffectEvent("land-offer"));
     this.exitMode();
   }
 
@@ -335,6 +500,20 @@ export class SellLandController implements Controller {
       "",
       "drop-shadow(0 0 6px rgba(120,220,255,0.9))",
     );
+    // Big "click to close" box at the start vertex.
+    const mkCircle = (r: number, stroke: string, fill: string, sw: number) => {
+      const c = document.createElementNS(ns, "circle");
+      c.setAttribute("r", String(r));
+      c.setAttribute("stroke", stroke);
+      c.setAttribute("fill", fill);
+      c.setAttribute("stroke-width", String(sw));
+      c.style.display = "none";
+      c.style.filter = "drop-shadow(0 0 4px rgba(0,0,0,0.6))";
+      svg.appendChild(c);
+      return c;
+    };
+    this.endpointRing = mkCircle(16, "rgba(255,210,74,0.95)", "none", 4);
+    this.endpointDot = mkCircle(6, "none", "rgba(255,210,74,0.9)", 0);
     document.body.appendChild(svg);
     this.svg = svg;
   }
@@ -366,20 +545,60 @@ export class SellLandController implements Controller {
     if (
       this.lassoPath === null ||
       this.parcelPath === null ||
-      this.glowPath === null
+      this.glowPath === null ||
+      this.endpointRing === null ||
+      this.endpointDot === null
     ) {
       return;
     }
 
-    // Live lasso (screen coords).
-    if (this.lasso !== null && this.lasso.length > 1) {
-      this.lassoPath.setAttribute(
-        "d",
-        "M" + this.lasso.map((p) => `${p.x} ${p.y}`).join("L"),
-      );
+    const w2s = (p: { x: number; y: number }) =>
+      this.transformHandler.worldToScreenCoordinates(new Cell(p.x, p.y));
+
+    // Live polygon being drawn (world → screen), with a rubber-band to cursor.
+    if (this.lasso !== null && this.lasso.length > 0) {
+      const pts = this.lasso.map(w2s);
+      let d =
+        "M" + pts.map((s) => `${s.x.toFixed(1)} ${s.y.toFixed(1)}`).join("L");
+      if (!this.dragging && this.cursor !== null && pts.length >= 1) {
+        const cs = w2s(this.cursor);
+        d += `L${cs.x.toFixed(1)} ${cs.y.toFixed(1)}`;
+      }
+      this.lassoPath.setAttribute("d", d);
       this.lassoPath.style.display = "block";
+
+      // Endpoint "close" box at the first vertex once there's a loop to close.
+      if (this.lasso.length >= 2) {
+        const s0 = pts[0];
+        const closable = this.lasso.length >= MIN_VERTICES;
+        const near =
+          this.cursor !== null &&
+          (() => {
+            const cs = w2s(this.cursor);
+            return Math.hypot(cs.x - s0.x, cs.y - s0.y) <= CLOSE_RADIUS;
+          })();
+        const color =
+          closable && near ? "rgba(120,255,150,0.95)" : "rgba(255,210,74,0.95)";
+        this.endpointRing.setAttribute("cx", s0.x.toFixed(1));
+        this.endpointRing.setAttribute("cy", s0.y.toFixed(1));
+        this.endpointRing.setAttribute("r", near && closable ? "20" : "16");
+        this.endpointRing.setAttribute("stroke", color);
+        this.endpointRing.style.display = "block";
+        this.endpointDot.setAttribute("cx", s0.x.toFixed(1));
+        this.endpointDot.setAttribute("cy", s0.y.toFixed(1));
+        this.endpointDot.setAttribute(
+          "fill",
+          closable ? color : "rgba(255,255,255,0.6)",
+        );
+        this.endpointDot.style.display = "block";
+      } else {
+        this.endpointRing.style.display = "none";
+        this.endpointDot.style.display = "none";
+      }
     } else {
       this.lassoPath.style.display = "none";
+      this.endpointRing.style.display = "none";
+      this.endpointDot.style.display = "none";
     }
 
     // Parcel boundary (while the panel is open).

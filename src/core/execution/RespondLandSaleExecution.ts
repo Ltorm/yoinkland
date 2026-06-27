@@ -30,8 +30,8 @@ export class RespondLandSaleExecution implements Execution {
     this.active = false;
     const offer = this.mg.landSaleOffer(this.offerId);
     if (offer === undefined) return;
-    // Only the buyer may respond.
-    if (offer.buyer !== this.responder) return;
+    // Only the party the offer is currently waiting on may respond.
+    if (offer.recipient !== this.responder) return;
 
     const { seller, buyer, price } = offer;
 

@@ -3,7 +3,10 @@ import { ClientID } from "../core/Schemas";
 
 const INTENTS_PER_SECOND = 10;
 const INTENTS_PER_MINUTE = 150;
-const MAX_INTENT_SIZE = 2000;
+// Land-sale offers carry an explicit parcel tile list (kept explicit so every
+// client conquers the SAME tiles — deterministic). A parcel is capped at
+// ~1500 tiles ≈ 12KB of JSON, so allow headroom above that here.
+const MAX_INTENT_SIZE = 20000;
 const TOTAL_BYTES = 5 * 1024 * 1024; // 5MB per client
 export type RateLimitResult = "ok" | "limit" | "kick";
 

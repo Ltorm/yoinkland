@@ -1,20 +1,23 @@
 import { Execution, Game, MessageType, Player, PlayerID } from "../game/Game";
 import { TileRef } from "../game/GameMap";
 
-// Bound the parcel so a single offer can't carry an enormous tile list.
-const MAX_PARCEL_TILES = 4000;
+// Bound the parcel so the offer intent stays under the wire size limit
+// (tiles are sent explicitly; see ClientMsgRateLimiter.MAX_INTENT_SIZE).
+const MAX_PARCEL_TILES = 1500;
 
 /**
- * A seller offers a parcel of their own land to a bordering neighbor for gold.
- * Validates ownership + adjacency, then registers a pending offer (surfaced to
- * the buyer via a LandSaleOffer game update).
+ * A land-sale offer between a seller (who owns the parcel) and a bordering
+ * buyer. The proposer may be EITHER party: a seller offering to sell, or a
+ * buyer offering to buy. The non-proposer becomes the recipient who must
+ * respond. Validates ownership + adjacency, then registers a pending offer.
  */
 export class ProposeLandSaleExecution implements Execution {
   private mg: Game;
   private active = true;
 
   constructor(
-    private seller: Player,
+    private proposer: Player,
+    private sellerId: PlayerID,
     private buyerId: PlayerID,
     private tiles: TileRef[],
     private price: number,
@@ -26,13 +29,18 @@ export class ProposeLandSaleExecution implements Execution {
 
   tick(ticks: number): void {
     this.active = false;
-    if (!this.mg.hasPlayer(this.buyerId)) return;
+    if (!this.mg.hasPlayer(this.sellerId) || !this.mg.hasPlayer(this.buyerId)) {
+      return;
+    }
+    const seller = this.mg.player(this.sellerId);
     const buyer = this.mg.player(this.buyerId);
-    if (buyer === this.seller || !buyer.isAlive()) return;
+    if (seller === buyer || !seller.isAlive() || !buyer.isAlive()) return;
+    // The proposer must be one of the two parties.
+    if (this.proposer !== seller && this.proposer !== buyer) return;
 
     // Only the seller's own land, capped.
     const parcel = this.tiles.filter(
-      (t) => this.mg.isValidRef(t) && this.mg.owner(t) === this.seller,
+      (t) => this.mg.isValidRef(t) && this.mg.owner(t) === seller,
     );
     if (parcel.length === 0 || parcel.length > MAX_PARCEL_TILES) return;
 
@@ -44,19 +52,20 @@ export class ProposeLandSaleExecution implements Execution {
       this.mg.displayMessage(
         "events_display.land_sale_not_neighbor",
         MessageType.ATTACK_FAILED,
-        this.seller.id(),
+        this.proposer.id(),
       );
       return;
     }
 
+    const recipient = this.proposer === seller ? buyer : seller;
     const price = BigInt(Math.max(0, Math.floor(this.price)));
-    this.mg.createLandSaleOffer(this.seller, buyer, parcel, price);
+    this.mg.createLandSaleOffer(seller, buyer, recipient, parcel, price);
     this.mg.displayMessage(
       "events_display.land_sale_offer_sent",
       MessageType.DONATION_SENT,
-      this.seller.id(),
+      this.proposer.id(),
       undefined,
-      { name: buyer.displayName() },
+      { name: recipient.displayName() },
     );
   }
 

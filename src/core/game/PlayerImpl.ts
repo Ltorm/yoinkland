@@ -318,6 +318,7 @@ export class PlayerImpl implements Player {
       allies: allies,
       embargoes: embargoes,
       isTraitor: this.isTraitor(),
+      vassalLordID: this.vassalLord()?.smallID() ?? null,
       traitorRemainingTicks: this.getTraitorRemainingTicks(),
       targets: targets,
       outgoingEmojis: outgoingEmojis,
@@ -742,7 +743,10 @@ export class PlayerImpl implements Player {
     if (other === this || !other.isPlayer()) return false;
     if (!this.isAlive() || !other.isAlive()) return false;
     if (this.isOnSameTeam(other)) return false; // teammates already protected
-    if (this.vassalLord() === other) return false; // already their vassal
+    // One lord at a time: while you still have a LIVING lord you can't
+    // surrender to anyone else. If that lord is destroyed, vassalLord() returns
+    // null (you're released) and you're free to surrender again or play on.
+    if (this.vassalLord() !== null) return false;
     if (other.vassalLord() === this) return false; // would create a cycle
     return true;
   }

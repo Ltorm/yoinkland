@@ -21,7 +21,11 @@ import { PlayerPanel } from "./PlayerPanel";
 import { TooltipItem } from "./RadialMenu";
 
 import { EventBus } from "../../../core/EventBus";
-import { LandBridgeModeEvent, SellLandModeEvent } from "../../InputHandler";
+import {
+  LandBridgeModeEvent,
+  RequestSurrenderConfirmEvent,
+  SellLandModeEvent,
+} from "../../InputHandler";
 const allianceIcon = assetUrl("images/AllianceIconWhite.svg");
 const boatIcon = assetUrl("images/BoatIconWhite.svg");
 const buildIcon = assetUrl("images/BuildIconWhite.svg");
@@ -389,9 +393,10 @@ export const surrenderElement: MenuElement = {
   ],
   action: (params: MenuElementParams) => {
     if (params.selected) {
-      params.playerActionHandler.handleSurrender(
-        params.myPlayer,
-        params.selected,
+      // Don't surrender on the click — ask for confirmation in the
+      // bottom-right panel first (guards against a misclick).
+      params.eventBus.emit(
+        new RequestSurrenderConfirmEvent(params.myPlayer, params.selected),
       );
     }
     params.closeMenu();
@@ -713,6 +718,34 @@ export const sellLandMenuElement: MenuElement = {
   },
 };
 
+function buyLandAvailable(params: MenuElementParams): boolean {
+  const { game, myPlayer, tile } = params;
+  if (game.inSpawnPhase()) return false;
+  const o = game.owner(tile);
+  return game.isLand(tile) && o.isPlayer() && o.id() !== myPlayer.id();
+}
+
+export const buyLandMenuElement: MenuElement = {
+  id: "buy_land",
+  name: "buy land",
+  disabled: (params: MenuElementParams) => params.game.inSpawnPhase(),
+  icon: sellLandIcon,
+  color: COLORS.build,
+  tooltipKeys: [
+    { key: "radial_menu.buy_land_title", className: "title" },
+    { key: "radial_menu.buy_land_description", className: "description" },
+  ],
+  action: (params: MenuElementParams) => {
+    // Enter land-trade mode: lasso the neighbor's land you want, then set a
+    // price in the panel (the lasso detects it's their land → a buy offer).
+    if (params.uiState) {
+      params.uiState.sellLandMode = true;
+    }
+    params.eventBus.emit(new SellLandModeEvent(true));
+    params.closeMenu();
+  },
+};
+
 export const buildMenuElement: MenuElement = {
   id: Slot.Build,
   name: "build",
@@ -812,7 +845,9 @@ export const rootMenuElement: MenuElement = {
     const menuItems: (MenuElement | null)[] = [
       infoMenuElement,
       ...(isOwnTerritory
-        ? [deleteUnitElement, allyRequestElement, buildMenuElement]
+        ? // "Sell Land" takes the old Delete-Unit slot so the wheel keeps its
+          // familiar OpenFront layout (no extra item shifting positions).
+          [sellLandMenuElement, allyRequestElement, buildMenuElement]
         : [
             isAllied && !isDisconnected ? allyBreakElement : boatMenuElement,
             inExtensionWindow ? allyExtendElement : allyRequestElement,
@@ -828,9 +863,11 @@ export const rootMenuElement: MenuElement = {
       menuItems.push(landBridgeMenuElement);
     }
 
-    // Offer "Sell Land" when right-clicking your own territory.
-    if (sellLandAvailable(params)) {
-      menuItems.push(sellLandMenuElement);
+    // "Sell Land" now lives in the fixed Delete-Unit slot above (own territory).
+
+    // Offer "Buy Land" when right-clicking a neighbor's territory.
+    if (buyLandAvailable(params)) {
+      menuItems.push(buyLandMenuElement);
     }
 
     // Offer "Surrender" when right-clicking another player you may vassalize to.

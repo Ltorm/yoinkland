@@ -61,6 +61,8 @@ export interface PlayerState {
   gold: number;
   troops: number;
   isTraitor: boolean;
+  /** smallID of the lord this player surrendered to, or null if not a vassal. */
+  vassalLordID: number | null;
   traitorRemainingTicks: number;
   betrayals: number;
   hasSpawned: boolean;

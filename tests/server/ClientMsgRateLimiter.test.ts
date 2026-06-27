@@ -31,12 +31,12 @@ describe("ClientMsgRateLimiter", () => {
 
     it("allows intents up to MAX_INTENT_SIZE", () => {
       const limiter = new ClientMsgRateLimiter();
-      expect(limiter.check(CLIENT_A, "intent", 2000)).toBe("ok");
+      expect(limiter.check(CLIENT_A, "intent", 20000)).toBe("ok");
     });
 
     it("kicks intents exceeding MAX_INTENT_SIZE", () => {
       const limiter = new ClientMsgRateLimiter();
-      expect(limiter.check(CLIENT_A, "intent", 2001)).toBe("kick");
+      expect(limiter.check(CLIENT_A, "intent", 20001)).toBe("kick");
     });
   });
 
