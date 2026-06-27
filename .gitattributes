@@ -1,0 +1,28 @@
+# Treat binary assets as binary so Git never applies line-ending (CRLF/LF)
+# conversion to them. Without this, autocrlf on Windows can inject CR bytes
+# into terrain .bin files and corrupt them (wrong buffer size on load).
+*.bin    binary
+*.png    binary
+*.jpg    binary
+*.jpeg   binary
+*.gif    binary
+*.webp   binary
+*.ico    binary
+*.mp3    binary
+*.ogg    binary
+*.wav    binary
+*.woff   binary
+*.woff2  binary
+*.ttf    binary
+*.otf    binary
+*.eot    binary
+*.bin.br binary
+
+# Source stays normalized to LF in the repo.
+*.ts     text eol=lf
+*.js     text eol=lf
+*.json   text eol=lf
+*.css    text eol=lf
+*.html   text eol=lf
+*.md     text eol=lf
+*.svg    text eol=lf
