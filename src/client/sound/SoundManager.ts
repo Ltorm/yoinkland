@@ -7,6 +7,7 @@ import {
   SetBackgroundMusicVolumeEvent,
   SetSoundEffectsVolumeEvent,
   SoundEffect,
+  soundEffectGain,
   soundEffectUrls,
 } from "./Sounds";
 
@@ -135,7 +136,7 @@ export class SoundManager {
     const src = soundEffectUrls.get(name);
     if (!src) return null;
     try {
-      sound = new Howl({ src: [src], volume: this.soundEffectsVolume });
+      sound = new Howl({ src: [src], volume: this.effectVolume(name) });
       this.soundEffects.set(name, sound);
       return sound;
     } catch (err) {
@@ -166,11 +167,16 @@ export class SoundManager {
     });
   }
 
+  // Global volume for an effect, scaled by its per-effect gain (default 1).
+  private effectVolume(name: SoundEffect): number {
+    return this.soundEffectsVolume * (soundEffectGain.get(name) ?? 1);
+  }
+
   public setSoundEffectsVolume(volume: number): void {
     this.soundEffectsVolume = this.perceptualGain(volume);
     this.safely("set sound effects volume", () => {
-      this.soundEffects.forEach((sound) => {
-        sound.volume(this.soundEffectsVolume);
+      this.soundEffects.forEach((sound, name) => {
+        sound.volume(this.effectVolume(name));
       });
     });
   }

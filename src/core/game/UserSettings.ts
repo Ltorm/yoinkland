@@ -419,7 +419,8 @@ export class UserSettings {
   }
 
   soundEffectsVolume(): number {
-    return this.getFloat("settings.soundEffectsVolume", 0);
+    // Default to 35% so new players hear effects without it being blaring.
+    return this.getFloat("settings.soundEffectsVolume", 0.35);
   }
 
   setSoundEffectsVolume(volume: number): void {

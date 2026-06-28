@@ -39,6 +39,12 @@ export const soundEffectUrls: ReadonlyMap<SoundEffect, string> = new Map([
   ["click", assetUrl("sounds/effects/click.mp3")],
 ]);
 
+// Per-effect volume multipliers relative to the global sound-effects volume.
+// Anything not listed plays at full (1). Used to tame a too-loud clip.
+export const soundEffectGain: ReadonlyMap<SoundEffect, number> = new Map([
+  ["build-city", 0.5], // the city build sound is louder than the rest
+]);
+
 export class PlaySoundEffectEvent implements GameEvent {
   constructor(public readonly effect: SoundEffect) {}
 }
