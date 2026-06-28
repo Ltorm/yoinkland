@@ -30,7 +30,7 @@ let seeded = false; // jumped to a random start position yet?
 // starts somewhere different.
 function seekRandomOnce(p: YTPlayer): void {
   if (seeded) return;
-  let duration = 0;
+  let duration: number;
   try {
     duration = p.getDuration();
   } catch {
@@ -43,10 +43,6 @@ function seekRandomOnce(p: YTPlayer): void {
   } catch {
     /* ignore */
   }
-}
-
-function inGame(): boolean {
-  return document.body.classList.contains("in-game");
 }
 
 function applyAudio(): void {

@@ -690,13 +690,6 @@ export const landBridgeMenuElement: MenuElement = {
   },
 };
 
-function sellLandAvailable(params: MenuElementParams): boolean {
-  const { game, myPlayer, tile } = params;
-  if (game.inSpawnPhase()) return false;
-  const o = game.owner(tile);
-  return game.isLand(tile) && o.isPlayer() && o.id() === myPlayer.id();
-}
-
 export const sellLandMenuElement: MenuElement = {
   id: "sell_land",
   name: "sell land",

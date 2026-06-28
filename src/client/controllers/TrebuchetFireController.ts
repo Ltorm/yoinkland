@@ -286,7 +286,7 @@ export class TrebuchetFireController implements Controller {
         (window as unknown as { webkitAudioContext: typeof AudioContext })
           .webkitAudioContext;
       if (!Ctx) return;
-      if (this.audioCtx === null) this.audioCtx = new Ctx();
+      this.audioCtx ??= new Ctx();
       const ctx = this.audioCtx;
       const t0 = ctx.currentTime;
 
@@ -342,7 +342,7 @@ export class TrebuchetFireController implements Controller {
         (window as unknown as { webkitAudioContext: typeof AudioContext })
           .webkitAudioContext;
       if (!Ctx) return;
-      if (this.audioCtx === null) this.audioCtx = new Ctx();
+      this.audioCtx ??= new Ctx();
       const ctx = this.audioCtx;
       const t0 = ctx.currentTime;
 
