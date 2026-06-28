@@ -79,6 +79,12 @@ export class NationLandSaleBehavior {
       return;
     }
 
+    // 3b. Never sell more than half our coastline (protect naval chokepoints).
+    if (this.exceedsHalfCoastline(offer.tiles)) {
+      this.respond(offer.offerId, false);
+      return;
+    }
+
     // 4. Value test: accept iff  price/gold >= mult * tiles/land
     //    ⇔  price * land * 10 >= multX10 * tiles * gold   (all integers).
     const gold = this.player.gold();
@@ -91,8 +97,13 @@ export class NationLandSaleBehavior {
       return;
     }
 
-    // 5. Otherwise counter at the price that meets our multiplier:
-    //    priceNeeded = multX10 * tiles * gold / (land * 10)
+    // 5. Too low: half the time counter at our price, half the time walk away.
+    if (this.random.chance(2)) {
+      this.respond(offer.offerId, false);
+      return;
+    }
+    // Counter at the price that meets our multiplier:
+    //   priceNeeded = multX10 * tiles * gold / (land * 10)
     const needed = (BigInt(multX10) * tiles * gold) / (BigInt(land) * 10n);
     if (needed <= offer.price || needed <= 0n) {
       // Shouldn't happen (offer already failed the test), but guard anyway.
@@ -115,6 +126,22 @@ export class NationLandSaleBehavior {
       MIN_MULT_X10 + Math.floor((pct * (MAX_MULT_X10 - MIN_MULT_X10)) / 100);
     const jitter = this.random.nextInt(-5, 6); // ±0.5x
     return Math.max(MIN_MULT_X10, Math.min(MAX_MULT_X10, base + jitter));
+  }
+
+  /** True if the parcel takes more than half our coastline (water-edge) tiles. */
+  private exceedsHalfCoastline(tiles: TileRef[]): boolean {
+    const isCoast = (t: TileRef) =>
+      this.game.neighbors(t).some((n) => this.game.isWater(n));
+    let botCoast = 0;
+    for (const t of this.player.borderTiles()) {
+      if (isCoast(t)) botCoast++;
+    }
+    if (botCoast === 0) return false; // landlocked — nothing to protect
+    let parcelCoast = 0;
+    for (const t of tiles) {
+      if (isCoast(t)) parcelCoast++;
+    }
+    return parcelCoast * 2 > botCoast;
   }
 
   private parcelHasStructure(tiles: TileRef[]): boolean {

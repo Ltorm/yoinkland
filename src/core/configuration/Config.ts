@@ -409,8 +409,13 @@ export class Config {
         break;
       case UnitType.Trebuchet:
         info = {
-          // TODO: temporary low cost for testing (was min(1.5M, (n+1)*500k)).
-          cost: this.costWrapper(() => 20_000, UnitType.Trebuchet),
+          // Escalating with the current trebuchet count (resets if they're all
+          // destroyed): 1st 350k, 2nd 500k, 3rd+ 750k.
+          cost: this.costWrapper(
+            (numUnits: number) =>
+              numUnits === 0 ? 350_000 : numUnits === 1 ? 500_000 : 750_000,
+            UnitType.Trebuchet,
+          ),
           constructionDuration: this.instantBuild() ? 0 : 8 * 10,
           upgradable: false,
         };
@@ -867,9 +872,9 @@ export class Config {
   }
   // Max firing range is derived from the map's coordinate-grid cell size
   // (TREBUCHET_MAX_GRIDS cells) — see src/core/Grid.ts `trebuchetRangeTiles`.
-  // Gold cost per boulder fired. TODO: temporary low cost for testing (was 500k).
+  // Gold cost per boulder fired.
   trebuchetShotCost(): Gold {
-    return 20_000n;
+    return 200_000n;
   }
   // Boulder flight speed (tiles/step); slower than a nuke.
   boulderSpeed(): number {
