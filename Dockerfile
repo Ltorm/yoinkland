@@ -21,6 +21,11 @@ COPY src ./src
 
 ARG GIT_COMMIT=unknown
 ENV GIT_COMMIT="$GIT_COMMIT"
+# Web workers can't resolve relative asset URLs, so the build must bake in an
+# ABSOLUTE CDN_BASE. For a same-origin self-host this is just the site's origin
+# (e.g. https://play.yourdomain.com), passed in from docker-compose.
+ARG CDN_BASE=""
+ENV CDN_BASE="$CDN_BASE"
 RUN npm run build-prod
 
 # Production dependencies stage - separate from build

@@ -13,10 +13,14 @@ services:
       dockerfile: Dockerfile
       args:
         GIT_COMMIT: ${GIT_COMMIT:-selfhost}
+        # Web workers need absolute asset URLs → bake in the site's own origin.
+        CDN_BASE: "https://${DOMAIN:?set DOMAIN in .env}"
     restart: unless-stopped
     environment:
       GAME_ENV: prod
       DOMAIN: ${DOMAIN:?set DOMAIN in .env}
+      # Same origin as the build arg above; the server injects it into index.html.
+      CDN_BASE: "https://${DOMAIN}"
       NUM_WORKERS: ${NUM_WORKERS:-2}
       # Bot-check off for a private instance (no external api-worker needed).
       DISABLE_TURNSTILE: "true"
