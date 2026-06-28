@@ -608,19 +608,15 @@ export class TrebuchetFireController implements Controller {
     ring.style.boxShadow = "0 0 10px rgba(0,0,0,0.5)";
     ring.style.display = "block";
 
-    // Distance readout near the cursor: how far the boulder will fly (grids),
-    // plus the cursor's own distance when "measuring" (spacebar held).
+    // Distance readout near the cursor: only how far the boulder will fly.
     const maxed = a.power >= 0.999;
     const label = this.ensureDistLabel();
     const flies = `${grids.toFixed(1)} grids`;
-    const cursorGrids = (a.cursorDist / cellSize).toFixed(1);
-    label.textContent = this.measuring
-      ? `flies ${flies}  •  cursor ${cursorGrids} grids`
-      : reloading
-        ? `${flies} — reloading`
-        : maxed
-          ? `${flies} (max)`
-          : flies;
+    label.textContent = reloading
+      ? `${flies} — reloading`
+      : maxed
+        ? `${flies} (max)`
+        : flies;
     label.style.color = reloading || maxed ? "#ff7a5c" : "#ffe08a";
     label.style.border = `1px solid ${reloading || maxed ? "rgba(255,90,60,0.6)" : "rgba(255,210,74,0.5)"}`;
     label.style.left = `${screenX}px`;

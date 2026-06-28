@@ -840,6 +840,8 @@ export interface Game extends GameMap {
     price: Gold,
   ): number;
   landSaleOffer(offerId: number): LandSaleOffer | undefined;
+  // All pending land-sale offers (used by bot AI to respond to buy offers).
+  pendingLandSaleOffers(): LandSaleOffer[];
   removeLandSaleOffer(offerId: number): void;
   railNetwork(): RailNetwork;
   conquerPlayer(conqueror: Player, conquered: Player): void;

@@ -17,6 +17,7 @@ import { GameID } from "../Schemas";
 import { assertNever, simpleHash } from "../Util";
 import { NationAllianceBehavior } from "./nation/NationAllianceBehavior";
 import { NationEmojiBehavior } from "./nation/NationEmojiBehavior";
+import { NationLandSaleBehavior } from "./nation/NationLandSaleBehavior";
 import { NationMIRVBehavior } from "./nation/NationMIRVBehavior";
 import { NationNukeBehavior } from "./nation/NationNukeBehavior";
 import { NationStructureBehavior } from "./nation/NationStructureBehavior";
@@ -36,6 +37,7 @@ export class NationExecution implements Execution {
   private warshipBehavior!: NationWarshipBehavior;
   private nukeBehavior!: NationNukeBehavior;
   private structureBehavior!: NationStructureBehavior;
+  private landSaleBehavior!: NationLandSaleBehavior;
   private mg: Game;
   private player: Player | null = null;
 
@@ -200,6 +202,7 @@ export class NationExecution implements Execution {
     this.updateRelationsFromEmbargos();
     this.allianceBehavior.handleAllianceRequests();
     this.allianceBehavior.handleAllianceExtensionRequests();
+    this.landSaleBehavior.handleLandSaleOffers();
     this.mirvBehavior.considerMIRV();
     this.structureBehavior.handleStructures();
     this.warshipBehavior.maybeSpawnWarship();
@@ -253,6 +256,11 @@ export class NationExecution implements Execution {
       this.emojiBehavior,
     );
     this.structureBehavior = new NationStructureBehavior(
+      this.random,
+      this.mg,
+      this.player,
+    );
+    this.landSaleBehavior = new NationLandSaleBehavior(
       this.random,
       this.mg,
       this.player,

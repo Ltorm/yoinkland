@@ -399,6 +399,10 @@ export class GameImpl implements Game {
     return this.landSaleOffers.get(offerId);
   }
 
+  pendingLandSaleOffers(): LandSaleOffer[] {
+    return [...this.landSaleOffers.values()];
+  }
+
   removeLandSaleOffer(offerId: number): void {
     this.landSaleOffers.delete(offerId);
   }
