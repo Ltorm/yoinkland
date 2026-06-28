@@ -22,7 +22,11 @@ export async function verifyClientToken(
   token: string,
 ): Promise<TokenVerificationResult> {
   if (PersistentIdSchema.safeParse(token).success) {
-    if (ServerEnv.env() === GameEnv.Dev) {
+    // Accept a guest's persistent ID directly in dev, OR on a private
+    // self-host (DISABLE_TURNSTILE=true) where there's no auth API to mint or
+    // verify real JWTs. In a real production deployment (with the api-worker)
+    // this stays rejected.
+    if (ServerEnv.env() === GameEnv.Dev || ServerEnv.disableTurnstile()) {
       return { type: "success", persistentId: token, claims: null };
     } else {
       return {
