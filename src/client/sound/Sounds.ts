@@ -22,7 +22,7 @@ export type SoundEffect =
 export const soundEffectUrls: ReadonlyMap<SoundEffect, string> = new Map([
   ["ka-ching", assetUrl("sounds/effects/ka-ching.mp3")],
   ["atom-hit", assetUrl("sounds/effects/atom-hit.mp3")],
-  ["atom-launch", assetUrl("sounds/effects/atom-launch.mp3")],
+  ["atom-launch", assetUrl("sounds/effects/sbob-sad-string.mp3")],
   ["hydrogen-hit", assetUrl("sounds/effects/hydrogen-hit.mp3")],
   ["hydrogen-launch", assetUrl("sounds/effects/hydrogen-launch.mp3")],
   ["mirv-launch", assetUrl("sounds/effects/mirv-launch.mp3")],
@@ -42,7 +42,7 @@ export const soundEffectUrls: ReadonlyMap<SoundEffect, string> = new Map([
 // Per-effect volume multipliers relative to the global sound-effects volume.
 // Anything not listed plays at full (1). Used to tame a too-loud clip.
 export const soundEffectGain: ReadonlyMap<SoundEffect, number> = new Map([
-  ["build-city", 0.5], // the city build sound is louder than the rest
+  ["build-city", 0.75], // the work-work city build clip, slightly tamed
 ]);
 
 export class PlaySoundEffectEvent implements GameEvent {
