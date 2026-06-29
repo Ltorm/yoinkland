@@ -486,9 +486,8 @@ class Client {
 
     const onUserMe = async (userMeResponse: UserMeResponse | false) => {
       updateAccountNavButton(userMeResponse);
-      const isAdFree =
-        userMeResponse !== false && userMeResponse.player?.adfree === true;
-      window.adsEnabled = !isAdFree && !crazyGamesSDK.isOnCrazyGames();
+      // Ads disabled entirely for the self-host build (no ad library loaded).
+      window.adsEnabled = false;
       document.dispatchEvent(
         new CustomEvent("userMeResponse", {
           detail: userMeResponse,

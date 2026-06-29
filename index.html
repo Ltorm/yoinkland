@@ -50,7 +50,10 @@
 
     <!-- Open Graph -->
     <meta property="og:url" content="https://openfront.io/" />
-    <meta property="og:title" content="YoinkLand — Squad Territory Battle Royale" />
+    <meta
+      property="og:title"
+      content="YoinkLand — Squad Territory Battle Royale"
+    />
     <meta
       property="og:description"
       content="Squad up with friends and conquer the map in YoinkLand — a multiplayer territory battle royale. Team up in parties of 3, nuke land into the sea, build land bridges, and outlast rival squads and bots."
@@ -98,9 +101,19 @@
     ></script>
 
     <script data-cfasync="false">
-      window.ramp = window.ramp || {};
-      window.ramp.que = window.ramp.que || [];
-      window.ramp.passiveMode = true;
+      // Self-host: no-op ad stub. The Playwire RAMP library is not loaded, so
+      // every ad call silently does nothing (ads fully disabled).
+      window.ramp = {
+        que: { push: function () {} },
+        passiveMode: true,
+        destroyUnits: function () {},
+        spaAddAds: function () {},
+        addUnits: function () {
+          return Promise.resolve();
+        },
+        displayUnits: function () {},
+        setPath: function () {},
+      };
     </script>
 
     <script>
@@ -441,12 +454,6 @@
       data-cf-beacon='{"token": "03d93e6fefb349c28ee69b408fa25a13"}'
     ></script>
     <script type="module" src="/src/client/Main.ts"></script>
-    <footer>
-      <script
-        data-cfasync="false"
-        async
-        src="//cdn.intergient.com/1025558/75940/ramp.js"
-      ></script>
-    </footer>
+    <!-- Ad library (Playwire RAMP) removed for the self-host build. -->
   </body>
 </html>
